@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Control | Unity</title>
+    <link rel="manifest" href="manifest.json">
+    <style>
+        /* CORE ADMIN STYLES - Matching transparent theme */
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, sans-serif; }
+        body {
+            background: url('background.jpg') no-repeat center center fixed;
+            background-size: cover; color: #ffffff; min-height: 100vh; padding: 2rem;
+        }
+        .gradient-text {
+            background: linear-gradient(90deg, #FF7EB3, #FF9A9E);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .glass-panel {
+            background: rgba(20, 10, 30, 0.5); backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 24px;
+            padding: 2rem; max-width: 800px; margin: 0 auto;
+        }
+        input, select {
+            width: 100%; background: rgba(0,0,0,0.3); border: none; border-bottom: 2px solid rgba(255,255,255,0.2);
+            color: white; padding: 12px; margin-bottom: 20px; font-size: 1rem;
+        }
+        .btn-primary {
+            background: linear-gradient(90deg, #FF7EB3, #FF758C); border: none;
+            color: white; padding: 15px 30px; border-radius: 12px; font-weight: bold; cursor: pointer;
+        }
+        .btn-danger { background: #FF4B4B; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; }
+        
+        /* DATA TABLES */
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        th { color: #FF7EB3; }
+        .red-list { color: #FF4B4B; font-weight: bold; }
+        
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    </style>
+</head>
+<body>
+
+    <div class="glass-panel">
+        <h1 class="gradient-text" style="margin-bottom: 10px;">Teacher Control Center</h1>
+        
+        <div id="setupPhase">
+            <h3>Setup Class Instance</h3>
+            <div class="grid-2">
+                <input type="text" id="teacherName" placeholder="Instructor Name" required>
+                <input type="text" id="subjectName" placeholder="Subject Name (e.g., Data Structures)" required>
+                <select id="tSection">
+                    <option value="1R">Section 1R</option>
+                    <option value="2R">Section 2R</option>
+                    <option value="3R">Section 3R</option>
+                    <option value="4R">Section 4R</option>
+                </select>
+                <select id="tDept">
+                    <option value="Computer Science">Computer Science</option>
+                    <option value="Software Engineering">Software Engineering</option>
+                </select>
+            </div>
+            
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <input type="text" id="customPass" placeholder="Set Class Password (e.g., UNITY123)">
+                <input type="number" id="expireMin" placeholder="Expire in (Mins)" style="width: 150px;">
+                <button class="btn-primary" onclick="activateClass()">Broadcast Class</button>
+            </div>
+        </div>
+
+        <div id="activePhase" style="display: none; margin-top: 40px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 20px;">
+                <div>
+                    <h2 class="gradient-text">Live Monitoring: <span id="lblSubject"></span></h2>
+                    <p>Password: <strong id="lblPass" style="letter-spacing: 2px;"></strong> | Expires in: <span id="timerText" style="color: #00FF88;">--:--</span></p>
+                </div>
+                <button class="btn-danger" onclick="endClass()">End Class Session</button>
+            </div>
+
+            <div class="grid-2" style="margin-top: 20px;">
+                <div style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 12px;">
+                    <h3>Present Students (<span id="countPresent">0</span>)</h3>
+                    <table id="presentTable">
+                        <tr><th>ID</th><th>Name</th><th>Proximity</th></tr>
+                        </table>
+                </div>
+                <div style="background: rgba(255,75,75,0.1); padding: 15px; border-radius: 12px;">
+                    <h3 class="red-list">Red List / Excuses</h3>
+                    <table id="excuseTable">
+                        <tr><th>ID</th><th>Name</th><th>Action</th></tr>
+                        </table>
+                </div>
+            </div>
+
+            <div style="margin-top: 40px; background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px;">
+                <h3 class="gradient-text">Grade Entry & Averages</h3>
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <input type="text" id="gName" placeholder="Student ID">
+                    <input type="number" id="gMid" placeholder="Midterm (30%)">
+                    <input type="number" id="gFinal" placeholder="Final (50%)">
+                    <input type="number" id="gAss" placeholder="Assign (20%)">
+                    <button class="btn-primary" onclick="calculateGrade()">Save & Calc</button>
+                </div>
+                <p id="gradeResult" style="margin-top: 10px; font-weight: bold;"></p>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, query, where, onSnapshot, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDNid0TBQ28XBEloJLDmuF4dNyujKqbubs",
+            authDomain: "attendance-com-92c0e.firebaseapp.com",
+            projectId: "attendance-com-92c0e",
+            storageBucket: "attendance-com-92c0e.firebasestorage.app",
+            messagingSenderId: "955785290213",
+            appId: "1:955785290213:web:2040cd92f90cb6ff994f0c",
+            measurementId: "G-3DVWNX47DC"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        
+        window.activeClassDoc = null;
+        let timerInterval;
+
+        window.activateClass = async function() {
+            const subject = document.getElementById("subjectName").value;
+            const teacher = document.getElementById("teacherName").value;
+            const section = document.getElementById("tSection").value;
+            const dept = document.getElementById("tDept").value;
+            let pass = document.getElementById("customPass").value || Math.random().toString(36).slice(-6).toUpperCase();
+            const mins = document.getElementById("expireMin").value || 60;
+
+            if(!subject || !teacher) return alert("Fill out Instructor and Subject names.");
+
+            try {
+                const classRef = await addDoc(collection(db, "activeClasses"), {
+                    subject, teacher, section, department: dept, password: pass, createdAt: new Date()
+                });
+                window.activeClassDoc = classRef.id;
+
+                // UI Updates
+                document.getElementById("setupPhase").style.display = "none";
+                document.getElementById("activePhase").style.display = "block";
+                document.getElementById("lblSubject").innerText = `${subject} (${section})`;
+                document.getElementById("lblPass").innerText = pass;
+
+                startTimer(mins);
+                listenToAttendance();
+
+                // Request Bluetooth Broadcast capability (Simulated Web BLE API limits)
+                if(navigator.bluetooth) {
+                    console.log("Bluetooth hardware available. Ready for proximity pings.");
+                }
+
+            } catch (e) { alert("Error: " + e.message); }
+        };
+
+        function startTimer(minutes) {
+            let time = minutes * 60;
+            timerInterval = setInterval(() => {
+                let m = Math.floor(time / 60); let s = time % 60;
+                document.getElementById("timerText").innerText = `${m}:${s < 10 ? '0':''}${s}`;
+                if(time <= 0) { clearInterval(timerInterval); alert("Password Expired!"); }
+                time--;
+            }, 1000);
+        }
+
+        function listenToAttendance() {
+            const q = query(collection(db, "attendance"), where("classId", "==", window.activeClassDoc));
+            onSnapshot(q, (snapshot) => {
+                const table = document.getElementById("presentTable");
+                // Keep header
+                table.innerHTML = "<tr><th>ID</th><th>Name</th><th>Proximity</th></tr>";
+                let count = 0;
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    count++;
+                    const proxIcon = data.proximityVerified ? "🔵 Verified" : "⚪ Manual";
+                    table.innerHTML += `<tr><td>${data.studentId}</td><td>${data.studentName}</td><td>${proxIcon}</td></tr>`;
+                });
+                document.getElementById("countPresent").innerText = count;
+            });
+        }
+
+        window.endClass = async function() {
+            if(window.activeClassDoc) {
+                await deleteDoc(doc(db, "activeClasses", window.activeClassDoc));
+                clearInterval(timerInterval);
+                alert("Class session closed.");
+                window.location.reload();
+            }
+        };
+
+        // Grade Calculation
+        window.calculateGrade = function() {
+            const mid = parseFloat(document.getElementById("gMid").value) || 0;
+            const final = parseFloat(document.getElementById("gFinal").value) || 0;
+            const ass = parseFloat(document.getElementById("gAss").value) || 0;
+            const total = mid + final + ass;
+            
+            let letter = "F";
+            if(total >= 85) letter = "A";
+            else if(total >= 75) letter = "B";
+            else if(total >= 60) letter = "C";
+            else if(total >= 50) letter = "D";
+
+            document.getElementById("gradeResult").innerText = `Total: ${total}/100 | Grade: ${letter}`;
+        };
+    </script>
+</body>
+</html>
