@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<!-- Developed by Dawit Solomon -->
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Portal | Academic Core</title>
+    <link rel="manifest" href="manifest-admin.json">
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+        
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+        body { background-color: #050505; color: #fff; overflow-x: hidden; }
+
+        /* --- AUTHENTICATION TRANSITION UI --- */
+        .auth-wrapper { display: flex; justify-content: center; align-items: center; height: 100vh; background: url('login-bg-admin.jpg') no-repeat center center/cover; }
+        .auth-container { background-color: #111; border-radius: 20px; box-shadow: 0 14px 28px rgba(0,0,0,0.5); position: relative; overflow: hidden; width: 900px; max-width: 100%; min-height: 550px; display: flex; border: 1px solid #333; }
+        
+        .form-container { position: absolute; top: 0; height: 100%; transition: all 0.6s ease-in-out; padding: 50px; display: flex; flex-direction: column; justify-content: center; }
+        .sign-in-container { left: 0; width: 50%; z-index: 2; }
+        .sign-up-container { left: 0; width: 50%; opacity: 0; z-index: 1; }
+        
+        .auth-container.right-panel-active .sign-in-container { transform: translateX(100%); opacity: 0; }
+        .auth-container.right-panel-active .sign-up-container { transform: translateX(100%); opacity: 1; z-index: 5; animation: show 0.6s; }
+        
+        @keyframes show { 0%, 49.99% { opacity: 0; z-index: 1; } 50%, 100% { opacity: 1; z-index: 5; } }
+
+        .overlay-container { position: absolute; top: 0; left: 50%; width: 50%; height: 100%; overflow: hidden; transition: transform 0.6s ease-in-out; z-index: 100; }
+        .auth-container.right-panel-active .overlay-container { transform: translateX(-100%); }
+        
+        .overlay { background: #fff; color: #000; position: relative; left: -100%; height: 100%; width: 200%; transform: translateX(0); transition: transform 0.6s ease-in-out; }
+        .auth-container.right-panel-active .overlay { transform: translateX(50%); }
+        
+        .overlay-panel { position: absolute; display: flex; align-items: center; justify-content: center; flex-direction: column; padding: 0 40px; text-align: center; top: 0; height: 100%; width: 50%; transform: translateX(0); transition: transform 0.6s ease-in-out; }
+        .overlay-left { transform: translateX(-20%); }
+        .auth-container.right-panel-active .overlay-left { transform: translateX(0); }
+        .overlay-right { right: 0; transform: translateX(0); }
+        .auth-container.right-panel-active .overlay-right { transform: translateX(20%); }
+
+        h1 { font-weight: 800; margin-bottom: 20px; }
+        p { font-size: 14px; font-weight: 300; line-height: 20px; margin: 20px 0 30px; }
+        input, select { background-color: #222; border: 1px solid #444; color: #fff; padding: 12px 15px; margin: 8px 0; width: 100%; border-radius: 8px; outline: none; transition: 0.3s; }
+        button { border-radius: 20px; border: 1px solid #fff; background-color: #fff; color: #000; font-size: 12px; font-weight: bold; padding: 12px 45px; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; margin-top: 15px; }
+        button.ghost { background-color: transparent; border-color: #000; color: #000; }
+
+        /* --- DASHBOARD UI --- */
+        .page { display: none; min-height: 100vh; }
+        .active-page { display: block; }
+        
+        .onboarding { display: flex; justify-content: center; align-items: center; height: 100vh; }
+        .onboard-box { background: #111; padding: 40px; border-radius: 15px; width: 500px; border: 1px solid #222; }
+        
+        .dash-layout { display: flex; height: 100vh; background: url('bg-admin.jpg') center/cover; }
+        .sidebar { width: 260px; background: rgba(10, 10, 10, 0.98); border-right: 1px solid #222; padding: 30px 20px; display: flex; flex-direction: column; }
+        .nav-link { color: #888; text-decoration: none; padding: 15px; margin-bottom: 5px; border-radius: 8px; display: flex; align-items: center; gap: 15px; font-weight: 600; cursor: pointer; }
+        .nav-link:hover, .nav-link.active { color: #fff; background: #222; }
+        
+        .main-content { flex: 1; padding: 40px; overflow-y: auto; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; }
+        
+        .grid { display: grid; grid-template-columns: 1fr 2fr; gap: 20px; }
+        .card { background: #151515; border: 1px solid #2a2a2a; border-radius: 12px; padding: 25px; }
+        
+        .toggle-btn { background: #333; color: #fff; border: none; padding: 15px; width: 100%; border-radius: 8px; cursor: pointer; font-size: 16px; margin-top: 20px; transition: 0.3s;}
+        .toggle-btn.active { background: #0f0; color: #000; font-weight: bold; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid #333; font-size: 14px; }
+        th { color: #888; text-transform: uppercase; font-size: 12px; }
+        .status-badge { background: rgba(0, 255, 0, 0.2); color: #0f0; padding: 5px 10px; border-radius: 20px; font-size: 12px; }
+    </style>
+</head>
+<body>
+
+    <!-- AUTHENTICATION PAGE -->
+    <div id="authPage" class="page active-page">
+        <div class="auth-wrapper">
+            <div class="auth-container" id="authContainer">
+                <div class="form-container sign-up-container">
+                    <form onsubmit="handleAuth(event, 'signup')">
+                        <h1>Instructor Setup</h1>
+                        <input type="email" id="supEmail" placeholder="Faculty Email" required />
+                        <input type="password" id="supPass" placeholder="Password" required />
+                        <button type="submit">Register</button>
+                    </form>
+                </div>
+                <div class="form-container sign-in-container">
+                    <form onsubmit="handleAuth(event, 'login')">
+                        <h1>Admin Login</h1>
+                        <input type="email" id="sinEmail" placeholder="Email" required />
+                        <input type="password" id="sinPass" placeholder="Password" required />
+                        <button type="submit">Log In</button>
+                    </form>
+                </div>
+                <div class="overlay-container">
+                    <div class="overlay">
+                        <div class="overlay-panel overlay-left">
+                            <h1>Welcome Back!</h1>
+                            <p>Login to manage your classes and view student attendance.</p>
+                            <button class="ghost" id="signInBtn">Sign In</button>
+                        </div>
+                        <div class="overlay-panel overlay-right">
+                            <h1>Faculty Portal</h1>
+                            <p>Register to start tracking computer science attendance securely.</p>
+                            <button class="ghost" id="signUpBtn">Sign Up</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ONBOARDING PAGE -->
+    <div id="onboardPage" class="page">
+        <div class="onboarding">
+            <div class="onboard-box">
+                <h2>Instructor Profile</h2>
+                <input type="text" id="obName" placeholder="Full Name (e.g., Dr. Smith)" required>
+                <input type="text" id="obSubject" placeholder="Subject Taught (e.g., Data Structures)" required>
+                
+                <select id="obDept">
+                    <option value="Computer Science">Computer Science</option>
+                    <option value="Software Engineering">Software Engineering</option>
+                </select>
+
+                <input type="text" id="obSection" placeholder="Which class/section? (e.g., 1R)" required>
+
+                <button onclick="saveProfile()" style="width: 100%; background: #fff; color: #000;">Enter Admin Panel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- DASHBOARD PAGE -->
+    <div id="dashPage" class="page">
+        <div class="dash-layout">
+            <div class="sidebar">
+                <h2 style="margin-bottom: 40px;"><i class='bx bx-shield-quarter'></i> Admin</h2>
+                <a class="nav-link active"><i class='bx bxs-dashboard'></i> Control Panel</a>
+                <a class="nav-link"><i class='bx bxs-report'></i> Full Reports</a>
+                <a class="nav-link"><i class='bx bxs-error'></i> Issue Warnings</a>
+                <div style="margin-top: auto;">
+                    <a class="nav-link" onclick="logout()"><i class='bx bx-log-out'></i> Logout</a>
+                </div>
+            </div>
+            
+            <div class="main-content">
+                <div class="header">
+                    <h3 id="adminNameDisplay">Instructor Panel</h3>
+                </div>
+
+                <div class="grid">
+                    <!-- Controls -->
+                    <div class="card">
+                        <h3>Session Control</h3>
+                        <p style="color: #888; font-size: 13px; margin-bottom: 20px;">Toggle your proximity beacon to allow students to record attendance.</p>
+                        <button id="sessionToggle" class="toggle-btn" onclick="toggleSession()">Start Class Session</button>
+
+                        <hr style="border-color: #333; margin: 30px 0;">
+
+                        <h3>Upload Material</h3>
+                        <input type="text" id="fileName" placeholder="File Title (e.g., Chapter 1 PDF)">
+                        <input type="text" id="fileUrl" placeholder="Direct File Link (GitHub/Drive)">
+                        <button onclick="uploadFile()" style="width: 100%; border-radius: 8px;">Upload to Directory</button>
+                    </div>
+
+                    <!-- Live Table -->
+                    <div class="card">
+                        <h3>Live Attendance Registry</h3>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Student ID</th>
+                                    <th>Name</th>
+                                    <th>Date/Time</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableBody">
+                                <!-- Populated by Firebase -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getDatabase, ref, set, get, onValue, remove, push, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDNid0TBQ28XBEloJLDmuF4dNyujKqbubs",
+            authDomain: "attendance-com-92c0e.firebaseapp.com",
+            databaseURL: "https://attendance-com-92c0e-default-rtdb.firebaseio.com",
+            projectId: "attendance-com-92c0e",
+            storageBucket: "attendance-com-92c0e.firebasestorage.app",
+            messagingSenderId: "955785290213",
+            appId: "1:955785290213:web:2040cd92f90cb6ff994f0c"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getDatabase(app);
+
+        let currentUserData = null;
+        let isSessionActive = false;
+
+        // UI Transitions
+        document.getElementById('signUpBtn').addEventListener('click', () => document.getElementById('authContainer').classList.add("right-panel-active"));
+        document.getElementById('signInBtn').addEventListener('click', () => document.getElementById('authContainer').classList.remove("right-panel-active"));
+
+        window.switchPage = (pageId) => {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active-page'));
+            document.getElementById(pageId).classList.add('active-page');
+        };
+
+        // Auth Logic
+        window.handleAuth = async (e, type) => {
+            e.preventDefault();
+            const email = type === 'login' ? document.getElementById('sinEmail').value : document.getElementById('supEmail').value;
+            const pass = type === 'login' ? document.getElementById('sinPass').value : document.getElementById('supPass').value;
+            
+            try {
+                if (type === 'login') await signInWithEmailAndPassword(auth, email, pass);
+                else await createUserWithEmailAndPassword(auth, email, pass);
+            } catch (error) { alert(error.message); }
+        };
+
+        window.saveProfile = async () => {
+            const uid = auth.currentUser.uid;
+            const data = {
+                name: document.getElementById('obName').value,
+                subject: document.getElementById('obSubject').value,
+                department: document.getElementById('obDept').value,
+                section: document.getElementById('obSection').value,
+                role: 'admin'
+            };
+            await set(ref(db, 'users/' + uid), data);
+            loadDashboard(data);
+        };
+
+        function loadDashboard(data) {
+            currentUserData = data;
+            document.getElementById('adminNameDisplay').innerText = `Instructor: ${data.name}`;
+            switchPage('dashPage');
+            listenToAttendance();
+        }
+
+        // Toggle Live Class
+        window.toggleSession = async () => {
+            const uid = auth.currentUser.uid;
+            const btn = document.getElementById('sessionToggle');
+            
+            if(!isSessionActive) {
+                await set(ref(db, 'activeClasses/' + uid), {
+                    teacherName: currentUserData.name,
+                    subject: currentUserData.subject,
+                    department: currentUserData.department,
+                    section: currentUserData.section,
+                    timestamp: serverTimestamp()
+                });
+                btn.classList.add('active');
+                btn.innerText = "End Class Session";
+                isSessionActive = true;
+            } else {
+                await remove(ref(db, 'activeClasses/' + uid));
+                btn.classList.remove('active');
+                btn.innerText = "Start Class Session";
+                isSessionActive = false;
+            }
+        };
+
+        // Upload Materials to DB
+        window.uploadFile = async () => {
+            const title = document.getElementById('fileName').value;
+            const url = document.getElementById('fileUrl').value;
+            if(title && url) {
+                await push(ref(db, 'materials'), { title, url, uploadedBy: currentUserData.name });
+                alert("File link pushed to student portal!");
+                document.getElementById('fileName').value = '';
+                document.getElementById('fileUrl').value = '';
+            }
+        };
+
+        // Real-time Attendance Table
+        function listenToAttendance() {
+            if(!auth.currentUser) return;
+            const uid = auth.currentUser.uid;
+            onValue(ref(db, 'attendance/' + uid), (snapshot) => {
+                const tbody = document.getElementById('tableBody');
+                tbody.innerHTML = '';
+                snapshot.forEach(child => {
+                    const record = child.val();
+                    const dateObj = new Date(); // In production, convert record.timestamp
+                    const dateStr = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString();
+                    
+                    tbody.innerHTML += `<tr>
+                        <td style="font-family: monospace;">${record.studentId}</td>
+                        <td>${record.name}</td>
+                        <td>${dateStr}</td>
+                        <td><span class="status-badge">Checked-in</span></td>
+                    </tr>`;
+                });
+            });
+        }
+
+        window.logout = () => signOut(auth).then(() => switchPage('authPage'));
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                const snapshot = await get(ref(db, 'users/' + user.uid));
+                if (snapshot.exists() && snapshot.val().role === 'admin') {
+                    loadDashboard(snapshot.val());
+                } else {
+                    switchPage('onboardPage');
+                }
+            } else {
+                switchPage('authPage');
+            }
+        });
+    </script>
+</body>
+</html>
